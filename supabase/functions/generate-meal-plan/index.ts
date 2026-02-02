@@ -8,6 +8,8 @@ interface MealPlanRequest {
   familySize: number
   weeklyBudget: number
   dietaryNotes?: string
+  likedMeals?: string[]
+  dislikedMeals?: string[]
 }
 
 Deno.serve(async (req) => {
@@ -21,12 +23,20 @@ Deno.serve(async (req) => {
       throw new Error('ANTHROPIC_API_KEY not configured')
     }
 
-    const { familySize, weeklyBudget, dietaryNotes }: MealPlanRequest = await req.json()
+    const { familySize, weeklyBudget, dietaryNotes, likedMeals, dislikedMeals }: MealPlanRequest = await req.json()
+
+    let preferencesSection = ''
+    if (likedMeals && likedMeals.length > 0) {
+      preferencesSection += `\nMeals the family has LIKED (include similar meals):\n${likedMeals.map(m => `- ${m}`).join('\n')}\n`
+    }
+    if (dislikedMeals && dislikedMeals.length > 0) {
+      preferencesSection += `\nMeals the family has DISLIKED (AVOID these completely):\n${dislikedMeals.map(m => `- ${m}`).join('\n')}\n`
+    }
 
     const prompt = `You are a helpful meal planning assistant. Generate a weekly meal plan for a family of ${familySize} with a budget of $${weeklyBudget} per week.
 
 ${dietaryNotes ? `Dietary considerations: ${dietaryNotes}` : ''}
-
+${preferencesSection}
 Return ONLY valid JSON matching this exact structure (no markdown, no explanation):
 {
   "familySize": ${familySize},

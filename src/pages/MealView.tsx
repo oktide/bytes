@@ -2,8 +2,6 @@ import { useState } from 'react'
 import {
   Box,
   Button,
-  Card,
-  CardContent,
   CircularProgress,
   Container,
   Drawer,
@@ -14,7 +12,6 @@ import {
   ListItemButton,
   ListItemText,
   Paper,
-  Slider,
   TextField,
   Typography,
   Alert,
@@ -27,8 +24,12 @@ import {
   Delete as DeleteIcon,
 } from '@mui/icons-material'
 import { useMealPlanner } from '../hooks/useMealPlanner'
+import { useAuth } from '../hooks/useAuth'
+import MealCard from '../components/MealCard'
+import UserMenu from '../components/UserMenu'
 
 export default function MealView() {
+  const { activeHousehold } = useAuth()
   const {
     currentPlan,
     history,
@@ -43,10 +44,11 @@ export default function MealView() {
     removePlan,
   } = useMealPlanner()
 
-  const [familySize, setFamilySize] = useState(4)
-  const [weeklyBudget, setWeeklyBudget] = useState(300)
   const [dietaryNotes, setDietaryNotes] = useState('')
   const [drawerOpen, setDrawerOpen] = useState(false)
+
+  const familySize = activeHousehold?.family_size || 4
+  const weeklyBudget = activeHousehold?.weekly_budget || 300
 
   const handleGenerate = () => {
     generate({ familySize, weeklyBudget, dietaryNotes })
@@ -76,13 +78,16 @@ export default function MealView() {
             <Typography variant="h3" component="h1">
               Bytes
             </Typography>
-            <IconButton
-              color="inherit"
-              onClick={() => setDrawerOpen(true)}
-              aria-label="Open history"
-            >
-              <HistoryIcon />
-            </IconButton>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <IconButton
+                color="inherit"
+                onClick={() => setDrawerOpen(true)}
+                aria-label="Open history"
+              >
+                <HistoryIcon />
+              </IconButton>
+              <UserMenu />
+            </Box>
           </Box>
           <Typography variant="subtitle1" sx={{ mt: 1, opacity: 0.9 }}>
             Budget-conscious weekly meal planning
@@ -95,32 +100,16 @@ export default function MealView() {
           <Grid size={{ xs: 12, md: 4 }}>
             <Paper sx={{ p: 3 }}>
               <Typography variant="h5" gutterBottom>
-                Preferences
+                Generate Plan
               </Typography>
 
-              <Box sx={{ mb: 3 }}>
-                <Typography gutterBottom>Family Size: {familySize}</Typography>
-                <Slider
-                  value={familySize}
-                  onChange={(_, value) => setFamilySize(value as number)}
-                  min={1}
-                  max={10}
-                  marks
-                  valueLabelDisplay="auto"
-                />
-              </Box>
-
-              <Box sx={{ mb: 3 }}>
-                <Typography gutterBottom>Weekly Budget: ${weeklyBudget}</Typography>
-                <Slider
-                  value={weeklyBudget}
-                  onChange={(_, value) => setWeeklyBudget(value as number)}
-                  min={50}
-                  max={500}
-                  step={25}
-                  valueLabelDisplay="auto"
-                  valueLabelFormat={(value) => `$${value}`}
-                />
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Family Size: {familySize} | Budget: ${weeklyBudget}/week
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  (Change in Household Settings)
+                </Typography>
               </Box>
 
               <TextField
@@ -201,25 +190,7 @@ export default function MealView() {
                 <Grid container spacing={2} sx={{ mb: 3 }}>
                   {currentPlan.days.map((day) => (
                     <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={day.day}>
-                      <Card sx={{ height: '100%' }}>
-                        <CardContent>
-                          <Typography variant="h6" color="primary" gutterBottom>
-                            {day.day}
-                          </Typography>
-                          <Typography variant="body2" sx={{ mb: 1 }}>
-                            <strong>Breakfast:</strong> {day.breakfast}
-                          </Typography>
-                          <Typography variant="body2" sx={{ mb: 1 }}>
-                            <strong>Lunch:</strong> {day.lunch}
-                          </Typography>
-                          <Typography variant="body2" sx={{ mb: 1 }}>
-                            <strong>Dinner:</strong> {day.dinner}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Dinner cost: {day.dinnerCost}
-                          </Typography>
-                        </CardContent>
-                      </Card>
+                      <MealCard day={day} />
                     </Grid>
                   ))}
                 </Grid>
