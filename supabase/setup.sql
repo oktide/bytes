@@ -4,7 +4,9 @@
 create table if not exists households (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz default now(),
-  name text not null default 'My Household'
+  name text not null default 'My Household',
+  family_size int not null default 4,
+  weekly_budget numeric not null default 300
 );
 alter table households enable row level security;
 
@@ -60,13 +62,18 @@ create table if not exists meal_preferences (
 );
 alter table meal_preferences enable row level security;
 
--- 7. Helper function
+-- 7. Helper functions
 create or replace function is_household_member(hh_id uuid)
 returns boolean as $$
   select exists (
     select 1 from household_members
     where household_id = hh_id and user_id = auth.uid()
   );
+$$ language sql security definer;
+
+create or replace function auth_user_email()
+returns text as $$
+  select email from auth.users where id = auth.uid()
 $$ language sql security definer;
 
 -- 8. RLS Policies
@@ -108,7 +115,7 @@ create policy "Users can insert own profile" on profiles for insert with check (
 
 drop policy if exists "Users can view invitations for their households" on household_invitations;
 create policy "Users can view invitations for their households" on household_invitations for select using (
-  is_household_member(household_id) or email = (select email from auth.users where id = auth.uid())
+  is_household_member(household_id) or lower(email) = lower(auth_user_email())
 );
 
 drop policy if exists "Members can create invitations" on household_invitations;
@@ -116,7 +123,7 @@ create policy "Members can create invitations" on household_invitations for inse
 
 drop policy if exists "Inviters can cancel, invitees can accept/decline" on household_invitations;
 create policy "Inviters can cancel, invitees can accept/decline" on household_invitations for update using (
-  invited_by = auth.uid() or email = (select email from auth.users where id = auth.uid())
+  invited_by = auth.uid() or lower(email) = lower(auth_user_email())
 );
 
 drop policy if exists "Inviters can delete invitations" on household_invitations;
@@ -149,12 +156,12 @@ returns trigger as $$
 declare
   new_household_id uuid;
 begin
-  insert into households (name) values (coalesce(new.raw_user_meta_data->>'name', 'My') || '''s Household') returning id into new_household_id;
-  insert into profiles (id, display_name, avatar_url, active_household_id) values (new.id, coalesce(new.raw_user_meta_data->>'name', new.email), new.raw_user_meta_data->>'avatar_url', new_household_id);
-  insert into household_members (household_id, user_id, role) values (new_household_id, new.id, 'owner');
+  insert into public.households (name) values ('My Household') returning id into new_household_id;
+  insert into public.profiles (id, display_name, avatar_url, active_household_id) values (new.id, coalesce(new.raw_user_meta_data->>'name', new.email), new.raw_user_meta_data->>'avatar_url', new_household_id);
+  insert into public.household_members (household_id, user_id, role) values (new_household_id, new.id, 'owner');
   return new;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users for each row execute function handle_new_user();

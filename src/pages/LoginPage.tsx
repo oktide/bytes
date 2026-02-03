@@ -3,35 +3,48 @@ import {
   Box,
   Button,
   Container,
+  Divider,
   Paper,
   TextField,
   Typography,
   Alert,
   CircularProgress,
 } from '@mui/material'
-import { Email as EmailIcon } from '@mui/icons-material'
+import { Google as GoogleIcon, Email as EmailIcon } from '@mui/icons-material'
 import { useAuth } from '../hooks/useAuth'
 
 export default function LoginPage() {
-  const { signInWithMagicLink } = useAuth()
+  const { signInWithGoogle, signInWithMagicLink } = useAuth()
   const [email, setEmail] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingGoogle, setIsLoadingGoogle] = useState(false)
+  const [isLoadingEmail, setIsLoadingEmail] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [magicLinkSent, setMagicLinkSent] = useState(false)
+
+  const handleGoogleSignIn = async () => {
+    setError(null)
+    setIsLoadingGoogle(true)
+    try {
+      await signInWithGoogle()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to sign in with Google')
+      setIsLoadingGoogle(false)
+    }
+  }
 
   const handleMagicLinkSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email.trim()) return
 
     setError(null)
-    setIsLoading(true)
+    setIsLoadingEmail(true)
     try {
       await signInWithMagicLink(email)
       setMagicLinkSent(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send magic link')
     } finally {
-      setIsLoading(false)
+      setIsLoadingEmail(false)
     }
   }
 
@@ -76,27 +89,47 @@ export default function LoginPage() {
               Check your email for a sign-in link. You can close this page.
             </Alert>
           ) : (
-            <form onSubmit={handleMagicLinkSignIn}>
-              <TextField
-                label="Email address"
-                type="email"
-                fullWidth
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoading}
-                sx={{ mb: 2 }}
-              />
+            <>
               <Button
-                type="submit"
                 variant="contained"
                 fullWidth
                 size="large"
-                startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : <EmailIcon />}
-                disabled={isLoading || !email.trim()}
+                startIcon={isLoadingGoogle ? <CircularProgress size={20} color="inherit" /> : <GoogleIcon />}
+                onClick={handleGoogleSignIn}
+                disabled={isLoadingGoogle || isLoadingEmail}
+                sx={{ mb: 2 }}
               >
-                {isLoading ? 'Sending...' : 'Send Magic Link'}
+                {isLoadingGoogle ? 'Signing in...' : 'Continue with Google'}
               </Button>
-            </form>
+
+              <Divider sx={{ my: 3 }}>
+                <Typography color="text.secondary" variant="body2">
+                  or
+                </Typography>
+              </Divider>
+
+              <form onSubmit={handleMagicLinkSignIn}>
+                <TextField
+                  label="Email address"
+                  type="email"
+                  fullWidth
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isLoadingEmail || isLoadingGoogle}
+                  sx={{ mb: 2 }}
+                />
+                <Button
+                  type="submit"
+                  variant="outlined"
+                  fullWidth
+                  size="large"
+                  startIcon={isLoadingEmail ? <CircularProgress size={20} /> : <EmailIcon />}
+                  disabled={isLoadingEmail || isLoadingGoogle || !email.trim()}
+                >
+                  {isLoadingEmail ? 'Sending...' : 'Send Magic Link'}
+                </Button>
+              </form>
+            </>
           )}
         </Paper>
       </Container>
