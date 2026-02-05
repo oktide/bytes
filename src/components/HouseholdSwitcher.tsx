@@ -131,7 +131,7 @@ export default function HouseholdSwitcher({ open, onClose }: HouseholdSwitcherPr
                       </Box>
                     }
                   >
-                    {invitation.household.name}
+                    {invitation.household_name}
                   </Alert>
                 ))}
               </>

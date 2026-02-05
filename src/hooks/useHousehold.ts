@@ -4,6 +4,7 @@ import {
   getHouseholdMembers,
   getHouseholdInvitations,
   getPendingInvitationsForUser,
+  createHousehold,
   updateHousehold,
   removeHouseholdMember,
   createInvitation,
@@ -98,6 +99,15 @@ export function useHousehold() {
     },
   })
 
+  const createHouseholdMutation = useMutation({
+    mutationFn: ({ name, userId }: { name: string; userId: string }) =>
+      createHousehold(name, userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['households'] })
+      refreshProfile()
+    },
+  })
+
   return {
     // Data
     households: householdsQuery.data || [],
@@ -113,6 +123,8 @@ export function useHousehold() {
 
     // Actions
     switchHousehold,
+    createHousehold: (name: string, userId: string) =>
+      createHouseholdMutation.mutateAsync({ name, userId }),
     updateHousehold: (householdId: string, updates: { name?: string; family_size?: number; weekly_budget?: number }) =>
       updateHouseholdMutation.mutateAsync({ householdId, updates }),
     removeMember: (householdId: string, userId: string) =>
@@ -125,6 +137,7 @@ export function useHousehold() {
     cancelInvitation: (invitationId: string) => cancelInvitationMutation.mutateAsync(invitationId),
 
     // Mutation states
+    isCreating: createHouseholdMutation.isPending,
     isUpdating: updateHouseholdMutation.isPending,
     isRemoving: removeMemberMutation.isPending,
     isInviting: inviteMemberMutation.isPending,
