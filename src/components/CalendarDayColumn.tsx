@@ -1,4 +1,4 @@
-import { Box, Typography, IconButton, Tooltip } from '@mui/material'
+import { Box, Typography, IconButton, Tooltip, Link } from '@mui/material'
 import {
   ThumbUp as ThumbUpIcon,
   ThumbDown as ThumbDownIcon,
@@ -14,6 +14,7 @@ interface CalendarDayColumnProps {
   day: MealDay
   weekStart: Date
   dayIndex: number
+  onMealClick?: (mealName: string) => void
 }
 
 type MealType = 'breakfast' | 'lunch' | 'dinner'
@@ -24,6 +25,7 @@ interface MealCellProps {
   mealType: MealType
   onLike: () => void
   onDislike: () => void
+  onMealClick?: () => void
   currentPreference: 'liked' | 'disliked' | null
   disabled: boolean
   showCost?: string
@@ -34,6 +36,7 @@ function MealCell({
   meal,
   onLike,
   onDislike,
+  onMealClick,
   currentPreference,
   disabled,
   showCost,
@@ -56,9 +59,31 @@ function MealCell({
       >
         {label}
       </Typography>
-      <Typography variant="body2" sx={{ flex: 1, fontSize: '0.8rem', lineHeight: 1.3 }}>
-        {meal}
-      </Typography>
+      {onMealClick ? (
+        <Link
+          component="button"
+          variant="body2"
+          onClick={onMealClick}
+          sx={{
+            flex: 1,
+            fontSize: '0.8rem',
+            lineHeight: 1.3,
+            textAlign: 'left',
+            color: 'text.primary',
+            textDecoration: 'none',
+            '&:hover': {
+              textDecoration: 'underline',
+              color: 'primary.main',
+            },
+          }}
+        >
+          {meal}
+        </Link>
+      ) : (
+        <Typography variant="body2" sx={{ flex: 1, fontSize: '0.8rem', lineHeight: 1.3 }}>
+          {meal}
+        </Typography>
+      )}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
         {showCost && (
           <Typography variant="caption" color="text.secondary">
@@ -102,7 +127,7 @@ function MealCell({
   )
 }
 
-export default function CalendarDayColumn({ day, weekStart, dayIndex }: CalendarDayColumnProps) {
+export default function CalendarDayColumn({ day, weekStart, dayIndex, onMealClick }: CalendarDayColumnProps) {
   const { user, activeHousehold } = useAuth()
   const { getPreferenceForMeal, addPreference, removePreference } = useMealPreferences()
 
@@ -159,6 +184,7 @@ export default function CalendarDayColumn({ day, weekStart, dayIndex }: Calendar
         mealType="breakfast"
         onLike={() => handlePreference('breakfast', day.breakfast, 'liked')}
         onDislike={() => handlePreference('breakfast', day.breakfast, 'disliked')}
+        onMealClick={onMealClick ? () => onMealClick(day.breakfast) : undefined}
         currentPreference={getPreference('breakfast', day.breakfast)}
         disabled={isDisabled}
       />
@@ -169,6 +195,7 @@ export default function CalendarDayColumn({ day, weekStart, dayIndex }: Calendar
         mealType="lunch"
         onLike={() => handlePreference('lunch', day.lunch, 'liked')}
         onDislike={() => handlePreference('lunch', day.lunch, 'disliked')}
+        onMealClick={onMealClick ? () => onMealClick(day.lunch) : undefined}
         currentPreference={getPreference('lunch', day.lunch)}
         disabled={isDisabled}
       />
@@ -179,6 +206,7 @@ export default function CalendarDayColumn({ day, weekStart, dayIndex }: Calendar
         mealType="dinner"
         onLike={() => handlePreference('dinner', day.dinner, 'liked')}
         onDislike={() => handlePreference('dinner', day.dinner, 'disliked')}
+        onMealClick={onMealClick ? () => onMealClick(day.dinner) : undefined}
         currentPreference={getPreference('dinner', day.dinner)}
         disabled={isDisabled}
         showCost={day.dinnerCost}
