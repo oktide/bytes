@@ -29,6 +29,7 @@ import WeekNavigator from '../components/WeekNavigator'
 import WeeklyCalendar from '../components/WeeklyCalendar'
 import GeneratePlanDialog from '../components/GeneratePlanDialog'
 import GroceryListDrawer from '../components/GroceryListDrawer'
+import RecipeDialog from '../components/RecipeDialog'
 import { formatWeekDisplay } from '../lib/dateUtils'
 
 export default function MealView() {
@@ -54,6 +55,8 @@ export default function MealView() {
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false)
   const [groceryDrawerOpen, setGroceryDrawerOpen] = useState(false)
   const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false)
+  const [recipeDialogOpen, setRecipeDialogOpen] = useState(false)
+  const [selectedMeal, setSelectedMeal] = useState<string | null>(null)
 
   const familySize = activeHousehold?.family_size || 4
   const weeklyBudget = activeHousehold?.weekly_budget || 300
@@ -66,6 +69,11 @@ export default function MealView() {
   const handleSelectWeek = (weekStartDate: string) => {
     navigateToWeek(weekStartDate)
     setHistoryDrawerOpen(false)
+  }
+
+  const handleMealClick = (mealName: string) => {
+    setSelectedMeal(mealName)
+    setRecipeDialogOpen(true)
   }
 
   return (
@@ -169,7 +177,7 @@ export default function MealView() {
                 </Button>
               </Box>
             </Box>
-            <WeeklyCalendar plan={currentPlan} weekStart={selectedWeek} />
+            <WeeklyCalendar plan={currentPlan} weekStart={selectedWeek} onMealClick={handleMealClick} />
           </>
         ) : (
           <Paper sx={{ p: 6, textAlign: 'center', mt: 4 }}>
@@ -250,6 +258,13 @@ export default function MealView() {
           )}
         </Box>
       </Drawer>
+
+      <RecipeDialog
+        open={recipeDialogOpen}
+        onClose={() => setRecipeDialogOpen(false)}
+        mealName={selectedMeal}
+        servings={familySize}
+      />
     </Box>
   )
 }

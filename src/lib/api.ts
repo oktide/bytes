@@ -535,3 +535,30 @@ export async function saveMealPlanForWeek(
 
   return data as SavedMealPlan
 }
+
+// Recipe API functions
+
+export interface Recipe {
+  name: string
+  prepTime: string
+  cookTime: string
+  servings: number
+  ingredients: string[]
+  instructions: string[]
+  tips?: string
+}
+
+export async function getRecipe(mealName: string, servings: number): Promise<Recipe> {
+  const { data, error } = await supabase.functions.invoke('get-recipe', {
+    body: {
+      mealName,
+      servings,
+    },
+  })
+
+  if (error) {
+    throw new Error(error.message || 'Failed to get recipe')
+  }
+
+  return data as Recipe
+}

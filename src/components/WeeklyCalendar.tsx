@@ -8,6 +8,7 @@ import {
   AccordionDetails,
   IconButton,
   Tooltip,
+  Link,
   useTheme,
   useMediaQuery,
 } from '@mui/material'
@@ -27,6 +28,7 @@ import { useAuth } from '../hooks/useAuth'
 interface WeeklyCalendarProps {
   plan: MealPlan
   weekStart: Date
+  onMealClick?: (mealName: string) => void
 }
 
 interface MobileDayAccordionProps {
@@ -35,6 +37,7 @@ interface MobileDayAccordionProps {
   dayIndex: number
   expanded: boolean
   onChange: () => void
+  onMealClick?: (mealName: string) => void
 }
 
 type MealType = 'breakfast' | 'lunch' | 'dinner'
@@ -45,6 +48,7 @@ interface MobileMealRowProps {
   mealType: MealType
   onLike: () => void
   onDislike: () => void
+  onMealClick?: () => void
   currentPreference: 'liked' | 'disliked' | null
   disabled: boolean
   showCost?: string
@@ -55,6 +59,7 @@ function MobileMealRow({
   meal,
   onLike,
   onDislike,
+  onMealClick,
   currentPreference,
   disabled,
   showCost,
@@ -66,7 +71,27 @@ function MobileMealRow({
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase' }}>
             {label}
           </Typography>
-          <Typography variant="body2">{meal}</Typography>
+          {onMealClick ? (
+            <Link
+              component="button"
+              variant="body2"
+              onClick={onMealClick}
+              sx={{
+                display: 'block',
+                textAlign: 'left',
+                color: 'text.primary',
+                textDecoration: 'none',
+                '&:hover': {
+                  textDecoration: 'underline',
+                  color: 'primary.main',
+                },
+              }}
+            >
+              {meal}
+            </Link>
+          ) : (
+            <Typography variant="body2">{meal}</Typography>
+          )}
           {showCost && (
             <Typography variant="caption" color="text.secondary">
               Est. cost: {showCost}
@@ -116,6 +141,7 @@ function MobileDayAccordion({
   dayIndex,
   expanded,
   onChange,
+  onMealClick,
 }: MobileDayAccordionProps) {
   const dayDate = getDayOfWeek(weekStart, dayIndex)
   const { user, activeHousehold } = useAuth()
@@ -168,6 +194,7 @@ function MobileDayAccordion({
           mealType="breakfast"
           onLike={() => handlePreference('breakfast', day.breakfast, 'liked')}
           onDislike={() => handlePreference('breakfast', day.breakfast, 'disliked')}
+          onMealClick={onMealClick ? () => onMealClick(day.breakfast) : undefined}
           currentPreference={getPreference('breakfast', day.breakfast)}
           disabled={isDisabled}
         />
@@ -177,6 +204,7 @@ function MobileDayAccordion({
           mealType="lunch"
           onLike={() => handlePreference('lunch', day.lunch, 'liked')}
           onDislike={() => handlePreference('lunch', day.lunch, 'disliked')}
+          onMealClick={onMealClick ? () => onMealClick(day.lunch) : undefined}
           currentPreference={getPreference('lunch', day.lunch)}
           disabled={isDisabled}
         />
@@ -186,6 +214,7 @@ function MobileDayAccordion({
           mealType="dinner"
           onLike={() => handlePreference('dinner', day.dinner, 'liked')}
           onDislike={() => handlePreference('dinner', day.dinner, 'disliked')}
+          onMealClick={onMealClick ? () => onMealClick(day.dinner) : undefined}
           currentPreference={getPreference('dinner', day.dinner)}
           disabled={isDisabled}
           showCost={day.dinnerCost}
@@ -195,7 +224,7 @@ function MobileDayAccordion({
   )
 }
 
-export default function WeeklyCalendar({ plan, weekStart }: WeeklyCalendarProps) {
+export default function WeeklyCalendar({ plan, weekStart, onMealClick }: WeeklyCalendarProps) {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [expandedDay, setExpandedDay] = useState<number | null>(0)
@@ -211,6 +240,7 @@ export default function WeeklyCalendar({ plan, weekStart }: WeeklyCalendarProps)
             dayIndex={index}
             expanded={expandedDay === index}
             onChange={() => setExpandedDay(expandedDay === index ? null : index)}
+            onMealClick={onMealClick}
           />
         ))}
       </Box>
@@ -226,6 +256,7 @@ export default function WeeklyCalendar({ plan, weekStart }: WeeklyCalendarProps)
             day={day}
             weekStart={weekStart}
             dayIndex={index}
+            onMealClick={onMealClick}
           />
         ))}
       </Box>
