@@ -62,6 +62,7 @@ export interface HouseholdMember {
 export interface HouseholdInvitation {
   id: string
   household_id: string
+  household_name: string
   email: string
   invited_by: string
   status: 'pending' | 'accepted' | 'declined'
@@ -193,6 +194,47 @@ export async function updateHousehold(
   return data as Household
 }
 
+export async function createHousehold(
+  name: string,
+  userId: string
+): Promise<Household> {
+  // Create the household
+  const { data: household, error: householdError } = await supabase
+    .from('households')
+    .insert({ name })
+    .select()
+    .single()
+
+  if (householdError) {
+    throw new Error(householdError.message || 'Failed to create household')
+  }
+
+  // Add user as owner
+  const { error: memberError } = await supabase
+    .from('household_members')
+    .insert({
+      household_id: household.id,
+      user_id: userId,
+      role: 'owner',
+    })
+
+  if (memberError) {
+    throw new Error(memberError.message || 'Failed to add user to household')
+  }
+
+  // Set as active household
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .update({ active_household_id: household.id })
+    .eq('id', userId)
+
+  if (profileError) {
+    throw new Error(profileError.message || 'Failed to set active household')
+  }
+
+  return household as Household
+}
+
 export async function getHouseholdMembers(householdId: string): Promise<HouseholdMember[]> {
   const { data, error } = await supabase
     .from('household_members')
@@ -242,19 +284,23 @@ export async function getHouseholdInvitations(householdId: string): Promise<Hous
   return (data || []) as HouseholdInvitation[]
 }
 
-export async function getPendingInvitationsForUser(): Promise<
-  (HouseholdInvitation & { household: Household })[]
-> {
+export async function getPendingInvitationsForUser(): Promise<HouseholdInvitation[]> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user?.email) {
+    return []
+  }
+
   const { data, error } = await supabase
     .from('household_invitations')
-    .select('*, household:households(*)')
+    .select('*')
     .eq('status', 'pending')
+    .eq('email', user.email.toLowerCase())
 
   if (error) {
     throw new Error(error.message || 'Failed to load invitations')
   }
 
-  return (data || []) as (HouseholdInvitation & { household: Household })[]
+  return (data || []) as HouseholdInvitation[]
 }
 
 export async function createInvitation(
@@ -262,10 +308,22 @@ export async function createInvitation(
   email: string,
   invitedBy: string
 ): Promise<HouseholdInvitation> {
+  // Get household name first
+  const { data: household, error: householdError } = await supabase
+    .from('households')
+    .select('name')
+    .eq('id', householdId)
+    .single()
+
+  if (householdError) {
+    throw new Error(householdError.message || 'Failed to get household')
+  }
+
   const { data, error } = await supabase
     .from('household_invitations')
     .insert({
       household_id: householdId,
+      household_name: household.name,
       email: email.toLowerCase(),
       invited_by: invitedBy,
     })
@@ -291,6 +349,25 @@ export async function acceptInvitation(invitationId: string, userId: string): Pr
     throw new Error('Invitation not found')
   }
 
+  // Ensure profile exists (in case trigger didn't run)
+  const { data: existingProfile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('id', userId)
+    .single()
+
+  if (!existingProfile) {
+    const { data: { user } } = await supabase.auth.getUser()
+    const { error: profileError } = await supabase.from('profiles').insert({
+      id: userId,
+      display_name: user?.user_metadata?.name || user?.email || 'User',
+      avatar_url: user?.user_metadata?.avatar_url || null,
+    })
+    if (profileError) {
+      throw new Error(profileError.message || 'Failed to create profile')
+    }
+  }
+
   // Add user to household
   const { error: memberError } = await supabase.from('household_members').insert({
     household_id: invitation.household_id,
@@ -300,6 +377,24 @@ export async function acceptInvitation(invitationId: string, userId: string): Pr
 
   if (memberError) {
     throw new Error(memberError.message || 'Failed to join household')
+  }
+
+  // Set as active household if user doesn't have one
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('active_household_id')
+    .eq('id', userId)
+    .single()
+
+  if (!profile?.active_household_id) {
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ active_household_id: invitation.household_id })
+      .eq('id', userId)
+
+    if (profileError) {
+      throw new Error(profileError.message || 'Failed to set active household')
+    }
   }
 
   // Update invitation status

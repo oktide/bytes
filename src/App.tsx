@@ -31,9 +31,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />
   }
 
-  // Show onboarding if household has default name
-  const needsOnboarding = activeHousehold?.name === 'My Household' && !onboardingComplete
-  if (needsOnboarding) {
+  // Show onboarding if no household
+  if (!activeHousehold && !onboardingComplete) {
     return <OnboardingPage onComplete={() => setOnboardingComplete(true)} />
   }
 
