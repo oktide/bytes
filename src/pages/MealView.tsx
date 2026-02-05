@@ -5,61 +5,67 @@ import {
   CircularProgress,
   Container,
   Drawer,
-  Grid,
+  Divider,
   IconButton,
   List,
   ListItem,
   ListItemButton,
   ListItemText,
-  Paper,
-  TextField,
   Typography,
   Alert,
-  Divider,
+  Paper,
   Chip,
 } from '@mui/material'
 import {
-  Menu as MenuIcon,
+  ShoppingCart as ShoppingCartIcon,
+  Add as AddIcon,
+  Restaurant as RestaurantIcon,
   History as HistoryIcon,
-  Delete as DeleteIcon,
 } from '@mui/icons-material'
 import { useMealPlanner } from '../hooks/useMealPlanner'
 import { useAuth } from '../hooks/useAuth'
-import MealCard from '../components/MealCard'
 import UserMenu from '../components/UserMenu'
+import WeekNavigator from '../components/WeekNavigator'
+import WeeklyCalendar from '../components/WeeklyCalendar'
+import GeneratePlanDialog from '../components/GeneratePlanDialog'
+import GroceryListDrawer from '../components/GroceryListDrawer'
+import { formatWeekDisplay } from '../lib/dateUtils'
 
 export default function MealView() {
   const { activeHousehold } = useAuth()
   const {
     currentPlan,
+    selectedWeek,
+    isCurrentWeek,
+    hasExistingPlan,
     history,
+    isLoading,
     isLoadingHistory,
     isGenerating,
     isSaving,
     generateError,
     generate,
-    save,
-    loadPlan,
-    clearPlan,
-    removePlan,
+    navigateToNextWeek,
+    navigateToPreviousWeek,
+    navigateToCurrentWeek,
+    navigateToWeek,
   } = useMealPlanner()
 
-  const [dietaryNotes, setDietaryNotes] = useState('')
-  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [generateDialogOpen, setGenerateDialogOpen] = useState(false)
+  const [groceryDrawerOpen, setGroceryDrawerOpen] = useState(false)
+  const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false)
 
   const familySize = activeHousehold?.family_size || 4
   const weeklyBudget = activeHousehold?.weekly_budget || 300
 
-  const handleGenerate = () => {
+  const handleGenerate = (dietaryNotes: string) => {
     generate({ familySize, weeklyBudget, dietaryNotes })
+    setGenerateDialogOpen(false)
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    })
+  const handleSelectWeek = (weekStartDate: string) => {
+    navigateToWeek(weekStartDate)
+    setHistoryDrawerOpen(false)
   }
 
   return (
@@ -69,176 +75,144 @@ export default function MealView() {
         sx={{
           bgcolor: 'primary.main',
           color: 'primary.contrastText',
-          py: 3,
+          py: 2,
           px: 2,
         }}
       >
-        <Container maxWidth="lg">
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h3" component="h1">
+        <Container maxWidth="xl">
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 2,
+            }}
+          >
+            <Typography variant="h4" component="h1" sx={{ fontWeight: 600 }}>
               Bytes
             </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, order: { xs: 3, md: 2 }, width: { xs: '100%', md: 'auto' }, justifyContent: { xs: 'center', md: 'flex-start' } }}>
+              <WeekNavigator
+                selectedWeek={selectedWeek}
+                isCurrentWeek={isCurrentWeek}
+                onPrevious={navigateToPreviousWeek}
+                onNext={navigateToNextWeek}
+                onToday={navigateToCurrentWeek}
+              />
+            </Box>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, order: { xs: 2, md: 3 } }}>
               <IconButton
                 color="inherit"
-                onClick={() => setDrawerOpen(true)}
-                aria-label="Open history"
+                onClick={() => setHistoryDrawerOpen(true)}
+                aria-label="View history"
               >
                 <HistoryIcon />
               </IconButton>
               <UserMenu />
             </Box>
           </Box>
-          <Typography variant="subtitle1" sx={{ mt: 1, opacity: 0.9 }}>
-            Budget-conscious weekly meal planning
-          </Typography>
         </Container>
       </Box>
 
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Grid container spacing={4}>
-          <Grid size={{ xs: 12, md: 4 }}>
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h5" gutterBottom>
-                Generate Plan
-              </Typography>
+      <Container maxWidth="xl" sx={{ py: 3 }}>
+        {generateError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {generateError.message}
+          </Alert>
+        )}
 
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" color="text.secondary">
-                  Family Size: {familySize} | Budget: ${weeklyBudget}/week
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  (Change in Household Settings)
-                </Typography>
-              </Box>
-
-              <TextField
-                label="Dietary Notes"
-                multiline
-                rows={3}
-                fullWidth
-                value={dietaryNotes}
-                onChange={(e) => setDietaryNotes(e.target.value)}
-                placeholder="e.g., vegetarian, no shellfish, kid-friendly..."
-                sx={{ mb: 3 }}
+        {isLoading ? (
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <CircularProgress />
+            <Typography color="text.secondary" sx={{ mt: 2 }}>
+              Loading meal plan...
+            </Typography>
+          </Box>
+        ) : currentPlan ? (
+          <>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2, alignItems: 'center' }}>
+              <Chip label={`Family of ${currentPlan.familySize}`} size="small" />
+              <Chip label={`Budget: $${currentPlan.weeklyBudget}`} size="small" />
+              <Chip
+                label={`Estimated: ${currentPlan.estimatedWeeklyTotal}`}
+                color="primary"
+                size="small"
               />
-
-              <Button
-                variant="contained"
-                fullWidth
-                size="large"
-                onClick={handleGenerate}
-                disabled={isGenerating}
-              >
-                {isGenerating ? (
-                  <>
-                    <CircularProgress size={20} sx={{ mr: 1 }} color="inherit" />
-                    Generating...
-                  </>
-                ) : (
-                  'Generate Plan'
-                )}
-              </Button>
-
-              {generateError && (
-                <Alert severity="error" sx={{ mt: 2 }}>
-                  {generateError.message}
-                </Alert>
+              {isSaving && (
+                <Chip
+                  icon={<CircularProgress size={14} />}
+                  label="Saving..."
+                  size="small"
+                  variant="outlined"
+                />
               )}
-            </Paper>
-          </Grid>
-
-          <Grid size={{ xs: 12, md: 8 }}>
-            {currentPlan ? (
-              <Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h5">
-                    Your Meal Plan
-                  </Typography>
-                  <Box>
-                    <Button
-                      variant="outlined"
-                      onClick={clearPlan}
-                      sx={{ mr: 1 }}
-                    >
-                      Clear
-                    </Button>
-                    <Button
-                      variant="contained"
-                      onClick={save}
-                      disabled={isSaving}
-                    >
-                      {isSaving ? 'Saving...' : 'Save Plan'}
-                    </Button>
-                  </Box>
-                </Box>
-
-                <Paper sx={{ p: 2, mb: 3 }}>
-                  <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                    <Chip label={`Family of ${currentPlan.familySize}`} />
-                    <Chip label={`Budget: $${currentPlan.weeklyBudget}`} />
-                    <Chip
-                      label={`Estimated Total: ${currentPlan.estimatedWeeklyTotal}`}
-                      color="primary"
-                    />
-                  </Box>
-                </Paper>
-
-                <Typography variant="h6" gutterBottom>
-                  Weekly Meals
-                </Typography>
-                <Grid container spacing={2} sx={{ mb: 3 }}>
-                  {currentPlan.days.map((day) => (
-                    <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={day.day}>
-                      <MealCard day={day} />
-                    </Grid>
-                  ))}
-                </Grid>
-
-                <Typography variant="h6" gutterBottom>
-                  Grocery List
-                </Typography>
-                <Grid container spacing={2}>
-                  {Object.entries(currentPlan.groceries).map(([store, items]) => (
-                    <Grid size={{ xs: 12, md: 6 }} key={store}>
-                      <Paper sx={{ p: 2 }}>
-                        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                          {store}
-                        </Typography>
-                        <List dense disablePadding>
-                          {items.map((item, idx) => (
-                            <ListItem key={idx} disablePadding>
-                              <ListItemText
-                                primary={item.item}
-                                secondary={item.price}
-                              />
-                            </ListItem>
-                          ))}
-                        </List>
-                      </Paper>
-                    </Grid>
-                  ))}
-                </Grid>
+              <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<AddIcon />}
+                  onClick={() => setGenerateDialogOpen(true)}
+                  disabled={isGenerating || isSaving}
+                >
+                  {isGenerating ? 'Generating...' : 'Generate'}
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<ShoppingCartIcon />}
+                  onClick={() => setGroceryDrawerOpen(true)}
+                >
+                  Groceries
+                </Button>
               </Box>
-            ) : (
-              <Paper sx={{ p: 4, textAlign: 'center' }}>
-                <MenuIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="h6" color="text.secondary">
-                  No meal plan yet
-                </Typography>
-                <Typography color="text.secondary">
-                  Adjust your preferences and click "Generate Plan" to get started
-                </Typography>
-              </Paper>
-            )}
-          </Grid>
-        </Grid>
+            </Box>
+            <WeeklyCalendar plan={currentPlan} weekStart={selectedWeek} />
+          </>
+        ) : (
+          <Paper sx={{ p: 6, textAlign: 'center', mt: 4 }}>
+            <RestaurantIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              No meal plan for this week
+            </Typography>
+            <Typography color="text.secondary" sx={{ mb: 3 }}>
+              Generate a plan to get started with your weekly meals and grocery list.
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setGenerateDialogOpen(true)}
+              disabled={isGenerating}
+            >
+              Generate Plan
+            </Button>
+          </Paper>
+        )}
       </Container>
+
+      <GeneratePlanDialog
+        open={generateDialogOpen}
+        onClose={() => setGenerateDialogOpen(false)}
+        onGenerate={handleGenerate}
+        isGenerating={isGenerating}
+        hasExistingPlan={hasExistingPlan}
+        selectedWeek={selectedWeek}
+        familySize={familySize}
+        weeklyBudget={weeklyBudget}
+      />
+
+      <GroceryListDrawer
+        open={groceryDrawerOpen}
+        onClose={() => setGroceryDrawerOpen(false)}
+        plan={currentPlan}
+      />
 
       <Drawer
         anchor="right"
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
+        open={historyDrawerOpen}
+        onClose={() => setHistoryDrawerOpen(false)}
       >
         <Box sx={{ width: 320, p: 2 }}>
           <Typography variant="h6" gutterBottom>
@@ -257,28 +231,17 @@ export default function MealView() {
           ) : (
             <List>
               {history.map((saved) => (
-                <ListItem
-                  key={saved.id}
-                  disablePadding
-                  secondaryAction={
-                    <IconButton
-                      edge="end"
-                      aria-label="delete"
-                      onClick={() => removePlan(saved.id)}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  }
-                >
+                <ListItem key={saved.id} disablePadding>
                   <ListItemButton
-                    onClick={() => {
-                      loadPlan(saved.plan)
-                      setDrawerOpen(false)
-                    }}
+                    onClick={() => saved.week_start_date && handleSelectWeek(saved.week_start_date)}
+                    disabled={!saved.week_start_date}
                   >
                     <ListItemText
-                      primary={formatDate(saved.created_at)}
-                      secondary={`Family of ${saved.family_size} • $${saved.weekly_budget}/week`}
+                      primary={saved.week_start_date
+                        ? formatWeekDisplay(new Date(saved.week_start_date + 'T00:00:00'))
+                        : 'Unknown week'
+                      }
+                      secondary={`Family of ${saved.family_size} | $${saved.weekly_budget}/week`}
                     />
                   </ListItemButton>
                 </ListItem>
