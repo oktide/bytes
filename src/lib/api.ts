@@ -28,6 +28,7 @@ export interface SavedMealPlan {
   weekly_budget: number
   household_id: string | null
   created_by: string | null
+  week_start_date: string | null
   plan: MealPlan
 }
 
@@ -484,4 +485,53 @@ export async function removeMealPreference(preferenceId: string): Promise<void> 
   if (error) {
     throw new Error(error.message || 'Failed to remove meal preference')
   }
+}
+
+// Week-centric meal plan functions
+
+export async function getMealPlanForWeek(
+  householdId: string,
+  weekStartDate: string
+): Promise<SavedMealPlan | null> {
+  const { data, error } = await supabase
+    .from('meal_plans')
+    .select('*')
+    .eq('household_id', householdId)
+    .eq('week_start_date', weekStartDate)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(error.message || 'Failed to load meal plan for week')
+  }
+
+  return data as SavedMealPlan | null
+}
+
+export async function saveMealPlanForWeek(
+  plan: MealPlan,
+  householdId: string,
+  userId: string,
+  weekStartDate: string
+): Promise<SavedMealPlan> {
+  const { data, error } = await supabase
+    .from('meal_plans')
+    .upsert(
+      {
+        family_size: plan.familySize,
+        weekly_budget: plan.weeklyBudget,
+        plan: plan,
+        household_id: householdId,
+        created_by: userId,
+        week_start_date: weekStartDate,
+      },
+      { onConflict: 'household_id,week_start_date' }
+    )
+    .select()
+    .single()
+
+  if (error) {
+    throw new Error(error.message || 'Failed to save meal plan for week')
+  }
+
+  return data as SavedMealPlan
 }
